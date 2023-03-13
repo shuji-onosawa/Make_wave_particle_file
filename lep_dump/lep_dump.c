@@ -5,6 +5,7 @@
 #include <alloca.h>
 #include <math.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 struct TIMEDATA
 {
@@ -43,11 +44,17 @@ struct {
 
 float	tml[3000];
 
+void parse(argc,argv);
+void mkinfilename(fnme1,filnme);
+int infileopen(fnme);
+int headerread();
+int dataread();
+void fileclose();
 
 /**************************************************************/
 /**************************  MAIN  ****************************/
 /**************************************************************/
-main(argc,argv)
+int main(argc,argv)
 int argc;
 char **argv;
 {
@@ -73,7 +80,7 @@ char **argv;
 /************************************************************/
 /**************************  SUB  ***************************/
 /************************************************************/
-mkinfilename(fnme1,filnme)
+void mkinfilename(fnme1,filnme)
      char *fnme1,*filnme;
 {
   strcat(filnme,fnme1);
@@ -193,7 +200,7 @@ int dataread()
 }
 
 
-fileclose()
+void fileclose()
 {
   fclose(fpi);
 }
@@ -202,7 +209,7 @@ fileclose()
 /************************************************************/
 /**************************  SUB-2  ***************************/
 /************************************************************/
-parse(argc,argv)
+void parse(argc,argv)
 int argc;
 char **argv;
 {

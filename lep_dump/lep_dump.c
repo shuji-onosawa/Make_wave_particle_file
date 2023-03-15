@@ -31,7 +31,6 @@ typedef struct LEPDATA lepdata;
 
 FILE *fpi;
 
-
 int	PXL, year, mon, day, stime, stime1, etime, angle, spicies;
 
 char	buf[100];
@@ -44,9 +43,9 @@ struct {
 
 float	tml[3000];
 
-void parse(argc,argv);
-void mkinfilename(fnme1,filnme);
-int infileopen(fnme);
+void parse(int argc,char **argv);
+void mkinfilename(char *fnme1,char *filnme);
+int infileopen(char *fnme);
 int headerread();
 int dataread();
 void fileclose();
@@ -54,9 +53,7 @@ void fileclose();
 /**************************************************************/
 /**************************  MAIN  ****************************/
 /**************************************************************/
-int main(argc,argv)
-int argc;
-char **argv;
+int main(int argc,char **argv)
 {
   int	i, n, x, y;
   static char infnme[100]="";
@@ -80,15 +77,13 @@ char **argv;
 /************************************************************/
 /**************************  SUB  ***************************/
 /************************************************************/
-void mkinfilename(fnme1,filnme)
-     char *fnme1,*filnme;
+void mkinfilename(char *fnme1,char *filnme)
 {
   strcat(filnme,fnme1);
 }
 
 
-int infileopen(fnme)
-char *fnme;
+int infileopen(char *fnme)
 {
   if(NULL == (fpi=fopen(fnme,"rb"))) {
     fprintf(stderr,"Can not open input file %s \n",fnme);
@@ -111,7 +106,7 @@ int headerread()
   }
   
   fread(buf,sizeof(timedata),1,fpi);
-  strncpy(stdate,&(buf->stime),12);
+  strncpy(stdate, buf->stime, 12);;
   stdate[12]='\0';
   strncpy(sttime,&stdate[6],6);
   sttime[6]='\0';
@@ -143,57 +138,65 @@ int dataread()
   }
 	
   s = stime; stime %= 86400L;
-  
-  printf("time[UT]  ");
-  for (i=0; i<29; i++) printf("C%02d ",i+1); printf("\n") ;
+
+  // 出力ファイルを開く
+  FILE *fpout = fopen("./data.txt", "w");
+  if (fpout == NULL) {
+    fprintf(stderr, "Can not open output file !! \n");
+    return(1);
+  }
+
+  fprintf(fpout, "time[UT]  ");
+  for (i=0; i<29; i++) fprintf(fpout, "C%02d ",i+1); fprintf(fpout, "\n") ;
   
   for(n=0;n<450/15;n++) /* max 30 blocs ie. 30*120 sec =1 hour */
-    {
-      if(s > etime) break;
-      if(fread(buf,sizeof(lepdata),1,fpi) != 1) {
-	free(buf);
-	return(readnum);
-      }      
-      for(k=0;k<15;++k)	{
-	if(s+8 > stime1) {
-	  printf("%02d:%02d:%02d  ",
-		 (s-(s%3600))/3600, 
-		 ((s%3600)-(s%60))/60, 
-		 s%60);
-	  for(i=0;i<18;i++) {
-	    for(j=0;j<29;j++) 
-	      {
-		particle[readnum].ele[i][j]=buf->countdata[18*29*k+29*i+j].ele;
-		particle[readnum].ion[i][j]=buf->countdata[18*29*k+29*i+j].ion;
+  {
+    if(s > etime) break;
+    if(fread(buf,sizeof(lepdata),1,fpi) != 1) {
+      free(buf);
+      fclose(fpout);
+      return(readnum);
+    }      
+    for(k=0;k<15;++k)	{
+	    if(s+8 > stime1) {
+        fprintf(fpout, "%02d:%02d:%02d  ",
+        (s-(s%3600))/3600, 
+        ((s%3600)-(s%60))/60, 
+        s%60);
+        for(i=0;i<18;i++) {
+          for(j=0;j<29;j++) 
+          {
+            particle[readnum].ele[i][j]=buf->countdata[18*29*k+29*i+j].ele;
+            particle[readnum].ion[i][j]=buf->countdata[18*29*k+29*i+j].ion;
+          }
 	      }
-	  }
-	  for(j=0;j<29;j++) {
-	    cr1 = 0 ; cr2=0 ;
-	    if (angle > 0) {
-	      i = angle;
-	      if (spicies == 0) cr = particle[readnum].ele[i][j] ;
-	      else              cr = particle[readnum].ion[i][j] ;
+        for(j=0;j<29;j++) {
+          cr1 = 0 ; cr2=0 ;
+          if (angle > 0) {
+            i = angle;
+            if (spicies == 0) cr = particle[readnum].ele[i][j] ;
+            else              cr = particle[readnum].ion[i][j] ;
+          }
+          else
+            for(i=0;i<18;i++) {
+              if (spicies == 0) cr = particle[readnum].ele[i][j] ;
+              else              cr = particle[readnum].ion[i][j] ;
+            cr2 = (cr > cr1) ? cr : cr1;
+            cr1 = cr2 ;
+            }
+          fprintf(fpout, "%3d ",cr2) ;
+        }
+	      fprintf(fpout, "\n") ;
+        ++readnum;
+        s+=8;
+	      if(s > etime) break;
 	    }
-	    else 	      
-	      for(i=0;i<18;i++) {
-		if (spicies == 0) cr = particle[readnum].ele[i][j] ;
-		else              cr = particle[readnum].ion[i][j] ;
-		cr2 = (cr > cr1) ? cr : cr1;
-		cr1 = cr2 ;
-	      }
-	    printf("%3d ",cr2) ;
-	  }
-	  printf("\n") ;
-	  ++readnum;
-	  s+=8;
-	  if(s > etime) break;
-	}
-	else {
-	  s+=8;
-	  if(s > etime) break;
-	}
+	    else {
+        s+=8;
+        if(s > etime) break;
       }
-    }    
+    }
+  }    
   
   free(buf);
   return(readnum);
@@ -209,9 +212,7 @@ void fileclose()
 /************************************************************/
 /**************************  SUB-2  ***************************/
 /************************************************************/
-void parse(argc,argv)
-int argc;
-char **argv;
+void parse(int argc,char **argv)
 {
   int	h,m,s;
 

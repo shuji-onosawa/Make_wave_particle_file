@@ -29,7 +29,8 @@ struct LEPDATA
 
 typedef struct LEPDATA lepdata;
 
-FILE *fpi;
+FILE *fpi; // 入力ファイル(*.lep)のポインタ
+FILE *fpo; // 出力ファイルのポインタ
 
 
 int	PXL, year, mon, day, stime, stime1, etime, angle, spicies;
@@ -44,9 +45,9 @@ struct {
 
 float	tml[3000];
 
-void parse(argc,argv);
-void mkinfilename(fnme1,filnme);
-int infileopen(fnme);
+void parse(int argc, char *argv[]);
+void mkinfilename(char *fnme1, char *filnme);
+int infileopen(char *fnme);
 int headerread();
 int dataread();
 void fileclose();
@@ -60,20 +61,29 @@ char **argv;
 {
   int	i, n, x, y;
   static char infnme[100]="";
-  
+
+  // 出力ファイルを開く
+  fpo = fopen("output.txt", "w");
+  if (fpo == NULL) {
+      fprintf(stderr, "Cannot open output file.\n");
+      exit(1);
+  }
+
   parse(argc,argv);
-  
+
   mkinfilename(argv[1],infnme);
   infileopen(infnme);
-  
+
   headerread();
-	
+
   PXL=dataread();
   if(PXL==0) {
       fprintf(stderr," 0-length input file "); exit(1);
   }
-  
+
   fileclose();
+
+  fclose(fpo);
 }
 
 
@@ -104,23 +114,23 @@ int headerread()
   timedata *buf;
   int	h,m,s;
   static char sttime[20]="",stdate[20]="";
-  
+
   if(NULL == (buf=(timedata *)malloc(16000))) {
     fprintf(stderr,"Can not allocate buffer memory !! \n");
     return(1);
   }
-  
+
   fread(buf,sizeof(timedata),1,fpi);
-  strncpy(stdate,&(buf->stime),12);
+  strncpy(stdate, buf->stime, 12);
   stdate[12]='\0';
   strncpy(sttime,&stdate[6],6);
   sttime[6]='\0';
-  
-  s=atol(sttime);	
+
+  s=atol(sttime);
   h = s/10000; m = (s%10000)/100; s = s%100;
   fprintf(stderr, "\thead time : %02d:%02d:%02d\n",h,m,s);
-  stime = s + 60*(m+60*h); 
-  
+  stime = s + 60*(m+60*h);
+
   free(buf);
   return(0);
 }
@@ -131,37 +141,37 @@ int dataread()
   int i,j,k,s,n,readnum=0;
   lepdata *buf;
   unsigned char cr, cr1, cr2 ;
-  
+
   if(NULL == (buf=(lepdata *)malloc(16000)))  {
     fprintf(stderr, "Can not allocate buffer memory !! \n");
     return(1);
   }
-  
+
   while(stime+120 < stime1) {
     if(fread(buf,sizeof(lepdata),1,fpi) != 1) return(1);
     stime += 120;
   }
-	
+
   s = stime; stime %= 86400L;
-  
-  printf("time[UT]  ");
-  for (i=0; i<29; i++) printf("C%02d ",i+1); printf("\n") ;
-  
+
+  fprintf(fpo, "time[UT]  ");
+  for (i=0; i<29; i++) fprintf(fpo, "C%02d ",i+1); fprintf(fpo, "\n") ;
+
   for(n=0;n<450/15;n++) /* max 30 blocs ie. 30*120 sec =1 hour */
     {
       if(s > etime) break;
       if(fread(buf,sizeof(lepdata),1,fpi) != 1) {
 	free(buf);
 	return(readnum);
-      }      
+      }
       for(k=0;k<15;++k)	{
 	if(s+8 > stime1) {
-	  printf("%02d:%02d:%02d  ",
-		 (s-(s%3600))/3600, 
-		 ((s%3600)-(s%60))/60, 
+	  fprintf(fpo, "%02d:%02d:%02d  ",
+		 (s-(s%3600))/3600,
+		 ((s%3600)-(s%60))/60,
 		 s%60);
 	  for(i=0;i<18;i++) {
-	    for(j=0;j<29;j++) 
+	    for(j=0;j<29;j++)
 	      {
 		particle[readnum].ele[i][j]=buf->countdata[18*29*k+29*i+j].ele;
 		particle[readnum].ion[i][j]=buf->countdata[18*29*k+29*i+j].ion;
@@ -174,16 +184,16 @@ int dataread()
 	      if (spicies == 0) cr = particle[readnum].ele[i][j] ;
 	      else              cr = particle[readnum].ion[i][j] ;
 	    }
-	    else 	      
+	    else
 	      for(i=0;i<18;i++) {
 		if (spicies == 0) cr = particle[readnum].ele[i][j] ;
 		else              cr = particle[readnum].ion[i][j] ;
 		cr2 = (cr > cr1) ? cr : cr1;
 		cr1 = cr2 ;
 	      }
-	    printf("%3d ",cr2) ;
+	    fprintf(fpo, "%3d ",cr2) ;
 	  }
-	  printf("\n") ;
+	  fprintf(fpo, "\n") ;
 	  ++readnum;
 	  s+=8;
 	  if(s > etime) break;
@@ -193,8 +203,8 @@ int dataread()
 	  if(s > etime) break;
 	}
       }
-    }    
-  
+    }
+
   free(buf);
   return(readnum);
 }
@@ -231,7 +241,7 @@ char **argv;
     fprintf(stderr,"                                        5.449E-13 * (J/E) for i\n");
     exit(0);
   }
-  
+
   /* date */
   year = atol(argv[1])/100; stime1 = 0; etime = 2*86400L;
   day  = year%100; mon = (year/100)%100; year = year/10000;
@@ -243,7 +253,7 @@ char **argv;
   h = s/10000; m = (s%10000)/100; s %= 100;
   fprintf(stderr,"\t  <stime> : %02d:%02d:%02d\n", h,m,s);
   stime1 = s+60*(m+60*h);
-  if('+'==argv[2][0]){ 
+  if('+'==argv[2][0]){
     stime1 += 86400L; day++; if(day<29) return;
     switch(mon) {
     case  1:
@@ -260,14 +270,14 @@ char **argv;
     case 11: if(day<=30) break;
       mon++; day = 1; break;
     case  2: if(day<=28) break;
-      if((0==(year%4))&&(day=29)) break; 
+      if((0==(year%4))&&(day=29)) break;
       mon++; day = 1;
     }
     etime = stime1 + 86400L;
   }
 
   /* etime */
-  s = atol(argv[3]); 
+  s = atol(argv[3]);
   if (s!=0) {
     h = s/10000; m = (s%10000)/100; s %= 100;
     etime = s+60*(m+60*h);
@@ -276,7 +286,7 @@ char **argv;
 
   /* pitch angle & spicies */
   angle = atol(argv[4]);    if (angle < 0   || angle > 18 ) angle   = 0;
-  spicies = atol(argv[5]);  if (spicies < 0 || spicies > 1) spicies = 0;  
+  spicies = atol(argv[5]);  if (spicies < 0 || spicies > 1) spicies = 0;
   fprintf(stderr,"\t  <angle> : ");
   if (angle>0)   fprintf(stderr,"%d (%d-%d deg)\n", angle, (angle-1)*10, angle*10);
   else           fprintf(stderr,"max\n");

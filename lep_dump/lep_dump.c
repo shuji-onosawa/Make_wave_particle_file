@@ -55,9 +55,7 @@ void fileclose();
 /**************************************************************/
 /**************************  MAIN  ****************************/
 /**************************************************************/
-int main(argc,argv)
-int argc;
-char **argv;
+int main(int argc,char **argv)
 {
   int	i, n, x, y;
   static char infnme[100]="";
@@ -90,15 +88,13 @@ char **argv;
 /************************************************************/
 /**************************  SUB  ***************************/
 /************************************************************/
-void mkinfilename(fnme1,filnme)
-     char *fnme1,*filnme;
+void mkinfilename(char *fnme1,char *filnme)
 {
   strcat(filnme,fnme1);
 }
 
 
-int infileopen(fnme)
-char *fnme;
+int infileopen(char *fnme)
 {
   if(NULL == (fpi=fopen(fnme,"rb"))) {
     fprintf(stderr,"Can not open input file %s \n",fnme);
@@ -219,9 +215,7 @@ void fileclose()
 /************************************************************/
 /**************************  SUB-2  ***************************/
 /************************************************************/
-void parse(argc,argv)
-int argc;
-char **argv;
+void parse(int argc,char **argv)
 {
   int	h,m,s;
 

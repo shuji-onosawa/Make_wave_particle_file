@@ -32,7 +32,6 @@ typedef struct LEPDATA lepdata;
 FILE *fpi; // 入力ファイル(*.lep)のポインタ
 FILE *fpo; // 出力ファイルのポインタ
 
-
 int	PXL, year, mon, day, stime, stime1, etime, angle, spicies;
 
 char	buf[100];

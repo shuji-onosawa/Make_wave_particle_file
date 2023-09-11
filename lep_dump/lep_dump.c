@@ -24,7 +24,7 @@ struct CDATA
 struct LEPDATA
 {
   unsigned char blocknumber;
-  struct CDATA	countdata[7830];
+  struct CDATA	countdata[7830];  // 18 pitch angle *29 energy step *15 recode=7830
 };
 
 typedef struct LEPDATA lepdata;
@@ -115,11 +115,11 @@ int headerread()
     return(1);
   }
 
-  fread(buf,sizeof(timedata),1,fpi);
+  fread(buf,sizeof(timedata),1,fpi);  // *.lepファイルのヘッダーを読み込む ヘッダーはyymmddhhmmssの12バイト
   strncpy(stdate, buf->stime, 12);
-  stdate[12]='\0';
+  stdate[12]='\0';  // stdateにはyymmddhhmmssが入る
   strncpy(sttime,&stdate[6],6);
-  sttime[6]='\0';
+  sttime[6]='\0';  // sttimeにはhhmmssが入る
 
   s=atol(sttime);
   h = s/10000; m = (s%10000)/100; s = s%100;
@@ -142,63 +142,67 @@ int dataread()
     return(1);
   }
 
-  while(stime+120 < stime1) {
+  while(stime+120 < stime1) { // stime1: 開始時刻
     if(fread(buf,sizeof(lepdata),1,fpi) != 1) return(1);
     stime += 120;
   }
 
   s = stime; stime %= 86400L;
 
+  // ヘッダーを出力
   fprintf(fpo, "time[UT]  ");
   for (i=0; i<29; i++) fprintf(fpo, "C%02d ",i+1); fprintf(fpo, "\n") ;
 
-  for(n=0;n<450/15;n++) /* max 30 blocs ie. 30*120 sec =1 hour */
-    {
-      if(s > etime) break;
-      if(fread(buf,sizeof(lepdata),1,fpi) != 1) {
-	free(buf);
-	return(readnum);
-      }
-      for(k=0;k<15;++k)	{
-	if(s+8 > stime1) {
-	  fprintf(fpo, "%02d:%02d:%02d  ",
-		 (s-(s%3600))/3600,
-		 ((s%3600)-(s%60))/60,
-		 s%60);
-	  for(i=0;i<18;i++) {
-	    for(j=0;j<29;j++)
-	      {
-		particle[readnum].ele[i][j]=buf->countdata[18*29*k+29*i+j].ele;
-		particle[readnum].ion[i][j]=buf->countdata[18*29*k+29*i+j].ion;
-	      }
-	  }
-	  for(j=0;j<29;j++) {
-	    cr1 = 0 ; cr2=0 ;
-	    if (angle > 0) {
-	      i = angle;
-	      if (spicies == 0) cr = particle[readnum].ele[i][j] ;
-	      else              cr = particle[readnum].ion[i][j] ;
-	    }
-	    else
-	      for(i=0;i<18;i++) {
-		if (spicies == 0) cr = particle[readnum].ele[i][j] ;
-		else              cr = particle[readnum].ion[i][j] ;
-		cr2 = (cr > cr1) ? cr : cr1;
-		cr1 = cr2 ;
-	      }
-	    fprintf(fpo, "%3d ",cr2) ;
-	  }
-	  fprintf(fpo, "\n") ;
-	  ++readnum;
-	  s+=8;
-	  if(s > etime) break;
-	}
-	else {
-	  s+=8;
-	  if(s > etime) break;
-	}
-      }
+  // データを出力
+  for(n=0;n<450/15;n++) {/* max 30 blocs ie. 30*120 sec =1 hour */
+    if(s > etime) break;
+    if(fread(buf,sizeof(lepdata),1,fpi) != 1) {
+	    free(buf);
+	    return(readnum);
     }
+    for(k=0;k<15;++k)	{
+	    if(s+8 > stime1) {
+	      fprintf(fpo, "%02d:%02d:%02d  ",
+		                 (s-(s%3600))/3600,  // 時間
+		                 ((s%3600)-(s%60))/60,  // 分
+		                 s%60);  // 秒
+	      for(i=0;i<18;i++) {
+	        for(j=0;j<29;j++) {
+            particle[readnum].ele[i][j]=buf->countdata[18*29*k+29*i+j].ele;
+            particle[readnum].ion[i][j]=buf->countdata[18*29*k+29*i+j].ion;
+          }
+	      }
+	      for(j=0;j<29;j++) {
+	        cr1 = 0 ; cr2=0 ;
+	        if (angle > 0) { // angleが0より大きい場合、指定した角度のデータを取得
+	          i = angle;
+	          if (spicies == 0) cr = particle[readnum].ele[i][j] ;
+	          else              cr = particle[readnum].ion[i][j] ;
+            fprintf(fpo, "%3d ",cr) ;
+	        }
+	        else { // angleが0の場合、最大のデータを取得
+	          for(i=0;i<18;i++) {
+              // speciesが0なら電子、1ならイオン
+              if (spicies == 0) cr = particle[readnum].ele[i][j] ;
+              else              cr = particle[readnum].ion[i][j] ;
+              //
+              cr2 = (cr > cr1) ? cr : cr1;
+              cr1 = cr2 ;
+            }
+	          fprintf(fpo, "%3d ",cr2) ;
+          }
+	      }
+	      fprintf(fpo, "\n") ;
+	      ++readnum;
+	      s+=8;
+	      if(s > etime) break;
+	    }
+	    else {
+	      s+=8;
+	      if(s > etime) break;
+	    }
+    }
+  }
 
   free(buf);
   return(readnum);
@@ -242,10 +246,15 @@ void parse(int argc,char **argv)
 
   /* stime */
   s = atol(argv[2]);
-  if (s==0) s = (atol(argv[1])%100)*10000;
-  h = s/10000; m = (s%10000)/100; s %= 100;
-  fprintf(stderr,"\t  <stime> : %02d:%02d:%02d\n", h,m,s);
-  stime1 = s+60*(m+60*h);
+  if (s == 0) {
+      s = (atol(argv[1]) % 100) * 10000;
+  }
+  h = s / 10000;
+  m = (s % 10000) / 100;
+  s %= 100;
+  fprintf(stderr, "\t  <stime> : %02d:%02d:%02d\n", h, m, s);
+  stime1 = s + 60 * (m + 60 * h);
+
   if('+'==argv[2][0]){
     stime1 += 86400L; day++; if(day<29) return;
     switch(mon) {

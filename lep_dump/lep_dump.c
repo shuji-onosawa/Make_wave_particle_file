@@ -57,7 +57,7 @@ void fileclose();
 int main(int argc,char **argv)
 {
   int	i, n, x, y;
-  static char infnme[100]="";
+  static char infnme[100]="";  // 入力ファイル名
 
   // 出力ファイルを開く
   fpo = fopen("output.txt", "w");
